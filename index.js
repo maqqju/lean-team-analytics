@@ -3,6 +3,7 @@ const rl = require("readline").createInterface({
 	input : process.stdin,
 	output : process.stdout
 });
+const reportingServer = require("./reporting-server/server");
 
 const Promise = require("es6-promise").Promise;
 
@@ -28,7 +29,7 @@ fs.exists("config.json", (exists) => {
 			}
 
 			let config = JSON.parse(data);
-			console.log(config.project);
+			reportingServer(config);
 		});
 	} else {
 		let answers = [];

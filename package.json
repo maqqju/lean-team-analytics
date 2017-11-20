@@ -24,6 +24,7 @@
   "homepage": "https://github.com/maqqju/lean-team-analytics#readme",
   "devDependencies": {},
   "dependencies": {
-    "es6-promise": "^4.1.1"
+    "es6-promise": "^4.1.1",
+    "express": "^4.16.2"
   }
 }
