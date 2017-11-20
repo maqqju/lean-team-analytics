@@ -7,11 +7,13 @@ const rl = require("readline").createInterface({
 const Promise = require("es6-promise").Promise;
 
 const questions = [
-	"JIRA base url (no need to write https://) ",
+	"JIRA base url (no need to write https://) : ",
 	"Name of your project (acronym) : ",
 	"Enter a user name : ",
 	"Enter a password : ",
-	"Name of 'DONE' phase : "
+	"Name of 'DONE' phase : ",
+	"JQL for retrieving historical data : ",
+	"JQL for retrieving sprint task data (use ||SPRINT|| as sprint id placeholder) : "
 ]
 
 fs.exists("config.json", (exists) => {
@@ -42,7 +44,11 @@ fs.exists("config.json", (exists) => {
 				project : answers[1],
 				username : answers[2],
 				password : answers[3],
-				done : answers[4]
+				done : answers[4],
+				jql : {
+					history : answers[5],
+					sprint : answers[6]
+				}
 			};
 
 			fs.writeFile("config.json", JSON.stringify(config), (err) => {
