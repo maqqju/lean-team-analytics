@@ -8,6 +8,10 @@ const Promise = require("es6-promise").Promise;
 
 const questions = [
 	"JIRA base url (no need to write https://) : ",
+	"JIRA rest api search endpoint (starts with /rest/agile/...) : ",
+	"JIRA rest api board endpoint (starts with /rest/agile/...) : ",
+	"JIRA rest api sprint lookup endpoint (starts with /rest/agile/...) : ",
+	"JIRA board number (e.g. 123) : ",
 	"Name of your project (acronym) : ",
 	"Enter a user name : ",
 	"Enter a password : ",
@@ -40,14 +44,20 @@ fs.exists("config.json", (exists) => {
 
 		allQuestions.then(() => {
 			let config = {
-				jiraUrl : answers[0],
-				project : answers[1],
-				username : answers[2],
-				password : answers[3],
-				done : answers[4],
+				jiraUrl: answers[0],
+				endpoints : {
+					search : answers[1],
+					board : answers[2],
+					sprint : answers[3]
+				},
+				boardNumber : answers[4],
+				project : answers[5],
+				username : answers[6],
+				password : answers[7],
+				done : answers[8],
 				jql : {
-					history : answers[5],
-					sprint : answers[6]
+					history : answers[9],
+					sprint : answers[10]
 				}
 			};
 
