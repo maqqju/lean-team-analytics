@@ -1,0 +1,24 @@
+{
+  "name": "lean-team-analytics",
+  "version": "0.1.0",
+  "description": "A suit of tools for lean-teams to analyse themselves and improve",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maqqju/lean-team-analytics.git"
+  },
+  "keywords": [
+    "lean",
+    "team",
+    "analytics"
+  ],
+  "author": "Matthew Croker <matthew.croker@ixaris.com>",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maqqju/lean-team-analytics/issues"
+  },
+  "homepage": "https://github.com/maqqju/lean-team-analytics#readme"
+}
