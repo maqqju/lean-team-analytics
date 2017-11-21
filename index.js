@@ -21,15 +21,15 @@ const questions = [
 	"JQL for retrieving sprint task data (use ||SPRINT|| as sprint id placeholder) : "
 ]
 
-fs.exists("config.json", (exists) => {
+fs.exists("reporting-server-config.json", (exists) => {
 	if (exists) {
-		fs.readFile("config.json", "utf8", (err, data) => {
+		fs.readFile("reporting-server-config.json", "utf8", (err, data) => {
 			if (err) {
 				return console.log(err);
 			}
 
-			let config = JSON.parse(data);
-			reportingServer(config);
+			let reportingServerConfig = JSON.parse(data);
+			reportingServer(reportingServerConfig);
 		});
 	} else {
 		let answers = [];
@@ -44,7 +44,7 @@ fs.exists("config.json", (exists) => {
 		}, Promise.resolve());
 
 		allQuestions.then(() => {
-			let config = {
+			let reportingServerConfig = {
 				jiraUrl: answers[0],
 				endpoints : {
 					search : answers[1],
@@ -62,12 +62,13 @@ fs.exists("config.json", (exists) => {
 				}
 			};
 
-			fs.writeFile("config.json", JSON.stringify(config), (err) => {
+			fs.writeFile("reporting-server-config.json", JSON.stringify(reportingServerConfig), (err) => {
 				if (err) {
 					return console.log(err);
 				}
 
 				console.log("Config file initialized");
+				reportingServer(reportingServerConfig);
 			});
 		});
 	}
