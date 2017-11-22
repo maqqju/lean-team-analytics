@@ -14,6 +14,13 @@ function btoa(string) {
 	return new Buffer(string).toString("base64");
 }
 
+/**
+ * Retrieves historical data from JIRA REST API using the CONFIg input by the user in he setup.
+ * 
+ * @param  {JSON}   	CONFIG     	- The JSON configuration saved by the user when setting up
+ * @param  {Function}   insertData 	- The function called when data is retrieved, used to insert the data in to the SQLite databse
+ * @param  {Function} 	cb          - The callback invoked when all data has been retrieved
+ */
 function getHistoricalData(CONFIG, insertData, cb) {
 
 	function getData(page) {
@@ -67,6 +74,11 @@ function getHistoricalData(CONFIG, insertData, cb) {
 	
 }
 
+/**
+ * Creates a server that collects data from JIRA REST API, processes it, and saves it in a local in-memory SQLite database.
+ * The server then exposes a number of REST APIs to be consumed for performance monitoring.
+ * @param {JSON} CONFIG - The JSON configuration saved by the user when setting up
+ */
 function ReportingServer(CONFIG) {
 	let app = express();
 	let db = new sqlite3.Database(":memory:");
