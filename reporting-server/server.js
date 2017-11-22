@@ -37,7 +37,7 @@ function getHistoricalData(CONFIG, insertData, cb) {
 			headers : { 
 				"Authorization" : "Basic "+btoa(CONFIG.username+":"+CONFIG.password),
 				"Content-Type" : "application/json",
-		    	"cache-control": "no-cache"
+				"cache-control": "no-cache"
 			}
 		}
 
