@@ -17,6 +17,7 @@ const questions = [
 	"Enter a user name : ",
 	"Enter a password : ",
 	"Name of 'DONE' phase : ",
+	"Custom Field number for Story Points (usually represented as cf[XXXXX]. Please write ONLY the number) : ",
 	"JQL for retrieving historical data : ",
 	"JQL for retrieving sprint task data (use ||SPRINT|| as sprint id placeholder) : "
 ]
@@ -56,9 +57,12 @@ fs.exists("reporting-server-config.json", (exists) => {
 				username : answers[6],
 				password : answers[7],
 				done : answers[8],
+				fields : {
+					storyPoints : answers[9]
+				},
 				jql : {
-					history : answers[9],
-					sprint : answers[10]
+					history : answers[10],
+					sprint : answers[11]
 				}
 			};
 
