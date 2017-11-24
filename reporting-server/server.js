@@ -19,9 +19,8 @@ function btoa(string) {
  * 
  * @param  {JSON}   	CONFIG     	- The JSON configuration saved by the user when setting up
  * @param  {Function}   insertData 	- The function called when data is retrieved, used to insert the data in to the SQLite databse
- * @param  {Function} 	cb          - The callback invoked when all data has been retrieved
  */
-function getHistoricalData(CONFIG, insertData, cb) {
+function getHistoricalData(CONFIG, insertData) {
 
 	function getData(page) {
 		console.log("Getting data for page "+ (page ? page : 0));
@@ -43,35 +42,39 @@ function getHistoricalData(CONFIG, insertData, cb) {
 
 		options.path += "&startAt="+startAt+"&maxResults=50";
 
-		var dataRequest = http.request(options, (res) => {
-			var chunks = [];
+		return new Promise((resolve) => {
+			var dataRequest = http.request(options, (res) => {
+				var chunks = [];
 
-			res.on("data", (chunk) => {
-				chunks.push(chunk);
+				res.on("data", (chunk) => {
+					chunks.push(chunk);
+				});
+
+				res.on("end", () => {
+					var body = JSON.parse(Buffer.concat(chunks));
+					insertData && insertData(body.issues);
+					if (startAt < body.total) {
+						getData(page ? page+1 : 1).then(resolve);
+					} else {
+						resolve()
+					}
+				});
 			});
 
-			res.on("end", () => {
-				var body = JSON.parse(Buffer.concat(chunks));
-				insertData && insertData(body.issues);
-				if (startAt < body.total) {
-					getData(page ? page+1 : 1);
-				} else {
-					//doThreePointValues();
-					cb && cb();
-					return;
-				}
+			dataRequest.on("error", (e) => {
+				console.log("Problem with request ", e);
 			});
+
+			dataRequest.end();
 		});
 
-		dataRequest.on("error", (e) => {
-			console.log("Problem with request ", e);
-		});
-
-		dataRequest.end();
 	}
 
-	getData(0);
-	
+	//getData(0);
+
+	return new Promise((resolve) => {
+		getData(0).then(resolve);
+	});
 }
 
 /**
@@ -146,7 +149,12 @@ function ReportingServer(CONFIG) {
 			mergedIssues.forEach((issue) => {
 				historyInsertStoriesStmt.run({$key : issue.key, $points : issue.points, $timespent : issue.timespent});
 			});
-		}, () => {
+		}).then(() => {
+			new Promise((resolve) => {
+				console.log("Processing");
+				resolve();
+			});
+		}).then(() => {
 			app.listen(port, () => {
 				console.log("Server is listening on port "+port);
 			});
