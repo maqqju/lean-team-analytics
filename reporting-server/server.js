@@ -2,6 +2,7 @@ const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const Promise = require("es6-promise").Promise;
 const http = require("https");
+const InMemoryDatabase = require("./db");
 
 
 
@@ -56,7 +57,7 @@ function getHistoricalData(CONFIG, insertData) {
 					if (startAt < body.total) {
 						getData(page ? page+1 : 1).then(resolve);
 					} else {
-						resolve()
+						resolve();
 					}
 				});
 			});
@@ -70,8 +71,6 @@ function getHistoricalData(CONFIG, insertData) {
 
 	}
 
-	//getData(0);
-
 	return new Promise((resolve) => {
 		getData(0).then(resolve);
 	});
@@ -84,28 +83,13 @@ function getHistoricalData(CONFIG, insertData) {
  */
 function ReportingServer(CONFIG) {
 	let app = express();
-	let db = new sqlite3.Database(":memory:");
+	//let db = new sqlite3.Database(":memory:");
+	let port = process.env.SERVER_PORT || 6970;
 
 	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
 
-	let port = process.env.SERVER_PORT || 6970;
-
-	db.serialize(() => {
-		console.log("Creating database schema...");
-
-		db.run("CREATE TABLE tbl_history_stories (key VARCHAR(20), points SMALLINT, timespent BIGINT)");
-		db.run("CREATE TABLE tbl_history_cycle (key VARCHAR(20), points SMALLINT, phase VARCHAR(30), timespent DOUBLE)");
-
-		// tpe => three point estimation
-		db.run("CREATE TABLE tbl_tpe_stories (points SMALLINT, sd BIGINT, weightedaverage BIGINT)");
-		db.run("CREATE TABLE tbl_tpe_cycle (points SMALLINT, phase VARCHAR(30), sd BIGINT, weightedaverage BIGINT)");
-
-		let historyInsertStoriesStmt = db.prepare("INSERT INTO tbl_history_stories (key, points, timespent) VALUES ($key,$points,$timespent)");
-		let historyInsertCycleStmt = db.prepare("INSERT INTO tbl_history_cycle (key, points, phase, timespent) VALUES ($key, $points, $phase, $timespent)");
-
-		console.log("Creating database schema created.");
-
-		getHistoricalData(CONFIG, (jiraData) => {
+	let getInsertFunction = (dbHandle) => {
+		let insertFunction = (jiraData) => {
 			let mergedIssues = jiraData.filter((issue) => {
 				return issue.fields["customfield_"+CONFIG.fields.storyPoints] && issue.fields.status.name === CONFIG.done;
 			}).map((issue) => {
@@ -142,26 +126,29 @@ function ReportingServer(CONFIG) {
 
 			cyclePreProcessedData.forEach((issue) => {
 				issue.changelog.forEach((change) => {
-					historyInsertCycleStmt.run({$key : issue.key, $points : issue.points , $phase : change.phase, $timespent : change.timespent});
+					dbHandle.insertCycleTimeData(issue, change);
 				});
 			});
 
 			mergedIssues.forEach((issue) => {
-				historyInsertStoriesStmt.run({$key : issue.key, $points : issue.points, $timespent : issue.timespent});
+				dbHandle.insertStoryData(issue);
 			});
-		}).then(() => {
-			new Promise((resolve) => {
-				console.log("Processing");
-				resolve();
-			});
-		}).then(() => {
-			app.listen(port, () => {
-				console.log("Server is listening on port "+port);
-			});
-		});
-	});
+		}
+		return Promise.resolve(insertFunction);
+	};
 
-
+	InMemoryDatabase.create().then(getInsertFunction)
+							 .then(getHistoricalData.bind(this, CONFIG))
+							 .then(() => {
+							  	 new Promise((resolve) => {
+								 	 console.log("Processing");
+									 resolve();
+								 });
+							 }).then(() => {
+								 app.listen(port, () => {
+									 console.log("Server is listening on port "+port);
+								 });
+							 });
 	/**
 	 * A REST API that returns three-point statistical data on cycle time
 	 */

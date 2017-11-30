@@ -1,8 +1,9 @@
 const sqlite3 = require("sqlite3").verbose();
+const Promise = require("es6-promise").Promise;
 
-function InMemoryDatabase() {
-	return {
-		create : () => {
+module.exports = {
+	create : () => {
+		return new Promise((resolve) => {
 			let db = new sqlite3.Database(":memory:");
 
 			db.serialize(() => {
@@ -17,7 +18,17 @@ function InMemoryDatabase() {
 
 				let historyInsertStoriesStmt = db.prepare("INSERT INTO tbl_history_stories (key, points, timespent) VALUES ($key,$points,$timespent)");
 				let historyInsertCycleStmt = db.prepare("INSERT INTO tbl_history_cycle (key, points, phase, timespent) VALUES ($key, $points, $phase, $timespent)");
+
+				resolve({
+					insertStoryData : (issue) => {
+						historyInsertStoriesStmt.run({$key : issue.key, $points : issue.points, $timespent : issue.timespent});
+					},
+					insertCycleTimeData : (issue, change) => {
+						historyInsertCycleStmt.run({$key : issue.key, $points : issue.points , $phase : change.phase, $timespent : change.timespent});
+					}
+				});
 			});
-		}
+
+		});
 	}
-}
+};
