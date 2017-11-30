@@ -2,7 +2,7 @@ const express = require("express");
 const sqlite3 = require("sqlite3").verbose();
 const Promise = require("es6-promise").Promise;
 const http = require("https");
-const InMemoryDatabase = require("./db");
+const reportingDb = require("./reporting-db");
 
 
 
@@ -83,62 +83,60 @@ function getHistoricalData(CONFIG, insertData) {
  */
 function ReportingServer(CONFIG) {
 	let app = express();
-	//let db = new sqlite3.Database(":memory:");
 	let port = process.env.SERVER_PORT || 6970;
+	let InMemoryDatabase = reportingDb();
 
 	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
 
-	let getInsertFunction = (dbHandle) => {
-		let insertFunction = (jiraData) => {
-			let mergedIssues = jiraData.filter((issue) => {
-				return issue.fields["customfield_"+CONFIG.fields.storyPoints] && issue.fields.status.name === CONFIG.done;
-			}).map((issue) => {
+	let insertFunction = (dbHandle, jiraData) => {
+		let mergedIssues = jiraData.filter((issue) => {
+			return issue.fields["customfield_"+CONFIG.fields.storyPoints] && issue.fields.status.name === CONFIG.done;
+		}).map((issue) => {
+			return {
+				key : issue.key,
+				points : issue.fields["customfield_"+CONFIG.fields.storyPoints],
+				timespent : issue.fields.timespent,
+				changelog : issue.changelog.histories.filter((change) => change.items[0].field === "status")
+			}
+		});
+
+		let cyclePreProcessedData = mergedIssues.map((issue) => {
 				return {
 					key : issue.key,
-					points : issue.fields["customfield_"+CONFIG.fields.storyPoints],
-					timespent : issue.fields.timespent,
-					changelog : issue.changelog.histories.filter((change) => change.items[0].field === "status")
+					points : issue.points,
+					changelog : issue.changelog.map((change) => {
+						return {
+							happened : change.created,
+							src : change.items[0].fromString,
+							dest : change.items[0].toString
+						}
+					}).map((change, i, list) => {
+						let changeDate = i > 0 ? list.splice(i-1,1).find((_c) => _c.dest === change.src) : null;
+						let changeStarted = changeDate ? new Date(changeDate.happened).getTime() : 0;
+
+						return {
+							phase : change.src,
+							timespent : new Date(change.happened).getTime() - changeStarted
+						}
+					})
+					
 				}
+		});
+
+		cyclePreProcessedData.forEach((issue) => {
+			issue.changelog.forEach((change) => {
+				dbHandle.insertCycleTimeData(issue, change);
 			});
+		});
 
-			let cyclePreProcessedData = mergedIssues.map((issue) => {
-					return {
-						key : issue.key,
-						points : issue.points,
-						changelog : issue.changelog.map((change) => {
-							return {
-								happened : change.created,
-								src : change.items[0].fromString,
-								dest : change.items[0].toString
-							}
-						}).map((change, i, list) => {
-							let changeDate = i > 0 ? list.splice(i-1,1).find((_c) => _c.dest === change.src) : null;
-							let changeStarted = changeDate ? new Date(changeDate.happened).getTime() : 0;
+		mergedIssues.forEach((issue) => {
+			dbHandle.insertStoryData(issue);
+		});
+	}
 
-							return {
-								phase : change.src,
-								timespent : new Date(change.happened).getTime() - changeStarted
-							}
-						})
-						
-					}
-			});
-
-			cyclePreProcessedData.forEach((issue) => {
-				issue.changelog.forEach((change) => {
-					dbHandle.insertCycleTimeData(issue, change);
-				});
-			});
-
-			mergedIssues.forEach((issue) => {
-				dbHandle.insertStoryData(issue);
-			});
-		}
-		return Promise.resolve(insertFunction);
-	};
-
-	InMemoryDatabase.create().then(getInsertFunction)
-							 .then(getHistoricalData.bind(this, CONFIG))
+	InMemoryDatabase.create().then((dbHandle) => {
+							 	return getHistoricalData(CONFIG, insertFunction.bind(this, dbHandle));
+							 })
 							 .then(() => {
 							  	 new Promise((resolve) => {
 								 	 console.log("Processing");
@@ -167,7 +165,8 @@ function ReportingServer(CONFIG) {
 	 * A REST API that returns historical data on phases
 	 */
 	app.get("/data/phases", (req,res) => {
-		db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", (err, results) => {
+		InMemoryDatabase.getCycleTimeData().then((err, results) => {
+			console.log(results)
 			res.json(results);
 		});
 	});
