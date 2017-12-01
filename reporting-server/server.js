@@ -3,6 +3,7 @@ const sqlite3 = require("sqlite3").verbose();
 const Promise = require("es6-promise").Promise;
 const http = require("https");
 const reportingDb = require("./reporting-db");
+const reportingEndpoints = require("./reporting-endpoints");
 
 
 
@@ -82,11 +83,6 @@ function getHistoricalData(CONFIG, insertData) {
  * @param {JSON} CONFIG - The JSON configuration saved by the user when setting up
  */
 function ReportingServer(CONFIG) {
-	let app = express();
-	let port = process.env.SERVER_PORT || 6970;
-	let InMemoryDatabase = reportingDb();
-
-	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
 
 	let insertFunction = (dbHandle, jiraData) => {
 		let mergedIssues = jiraData.filter((issue) => {
@@ -133,8 +129,15 @@ function ReportingServer(CONFIG) {
 			dbHandle.insertStoryData(issue);
 		});
 	}
+	let port = process.env.SERVER_PORT || 6970;
 
+	process.env["NODE_TLS_REJECT_UNAUTHORIZED"] = "0";
+
+
+	let InMemoryDatabase = reportingDb();
+	let app;
 	InMemoryDatabase.create().then((dbHandle) => {
+								app = reportingEndpoints(dbHandle);
 							 	return getHistoricalData(CONFIG, insertFunction.bind(this, dbHandle));
 							 })
 							 .then(() => {
@@ -143,56 +146,11 @@ function ReportingServer(CONFIG) {
 									 resolve();
 								 });
 							 }).then(() => {
-								 app.listen(port, () => {
-									 console.log("Server is listening on port "+port);
-								 });
+								app.listen(port, () => {
+									console.log("Server is listening on port "+port);
+								});
 							 });
-	/**
-	 * A REST API that returns three-point statistical data on cycle time
-	 */
-	app.get("/three-pt-data/cycle", (req,res) => {
-		res.json({message : "A REST API that returns three-point statistical data on cycle time"});
-	});
-
-	/**
-	 * A REST API that returns three-point statistical data on stories
-	 */
-	app.get("/three-pt-data/stories", (req,res) => {
-		res.json({message : "A REST API that returns three-point statistical data on stories"});
-	});
-
-	/**
-	 * A REST API that returns historical data on phases
-	 */
-	app.get("/data/phases", (req,res) => {
-		InMemoryDatabase.getCycleTimeData().then((err, results) => {
-			console.log(results)
-			res.json(results);
-		});
-	});
-
-	/**
-	 * A REST API that returns historical data on stories
-	 */
-	app.get("/data/stories", (req,res) => {
-		db.all("SELECT key, points, timespent FROM tbl_history_stories", (err, results) => {
-			res.json(results);
-		});
-	});
-
-	/**
-	 * A REST API that returns historical data on stories
-	 */
-	app.get("/sprint/data", (req,res) => {
-		res.json({message : "A REST API that forwards sprint-data from JIRA"});
-	});
-
-	/**
-	 * A REST API that forwards sprint task-data from JIRA
-	 */
-	app.get("/sprint/tasks", (req,res) => {
-		res.json({message : "A REST API that forwards sprint task-data from JIRA"});
-	});
+	
 }
 
 module.exports = ReportingServer;

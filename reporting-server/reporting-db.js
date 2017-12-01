@@ -43,7 +43,7 @@ module.exports = () => {
 
 		getCycleTimeData : () => {
 			return new Promise((resolve) => {
-				console.log("getCycleTimeData > promise ");
+				console.log(!insertStatements.insertStoryData);
 				db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", (err, results) => {
 					console.log("Weve got results")
 					resolve(err, results);
