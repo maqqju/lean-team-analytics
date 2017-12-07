@@ -1,5 +1,3 @@
-const express = require("express");
-const sqlite3 = require("sqlite3").verbose();
 const Promise = require("es6-promise").Promise;
 const http = require("https");
 const reportingDb = require("./reporting-db");
