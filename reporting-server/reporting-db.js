@@ -2,7 +2,7 @@ const sqlite3 = require("sqlite3").verbose();
 const Promise = require("es6-promise").Promise;
 
 module.exports = () => {
-	let db = new sqlite3.Database(":memory:");
+	let db;
 	let insertStatements = {
 		insertStoryData : null,
 		insertCycleTimeData : null
@@ -11,7 +11,8 @@ module.exports = () => {
 	let dbHandle =  {
 		create : () => {
 			return new Promise((resolve) => {
-	
+
+				db = new sqlite3.Database(":memory:");
 				db.serialize(() => {
 					console.log("Creating database schema...");
 	
@@ -24,7 +25,8 @@ module.exports = () => {
 	
 					insertStatements.insertStoryData = db.prepare("INSERT INTO tbl_history_stories (key, points, timespent) VALUES ($key,$points,$timespent)");
 					insertStatements.insertCycleTimeData = db.prepare("INSERT INTO tbl_history_cycle (key, points, phase, timespent) VALUES ($key, $points, $phase, $timespent)");
-	
+
+					console.log("Database schema created.")
 					resolve(dbHandle);
 				});
 	
@@ -32,8 +34,8 @@ module.exports = () => {
 		},
 
 		insertCycleTimeData : (issue, change) => {
-			insertStatements.insertCycleTimeData && insertStatements.insertCycleTimeData.run({$key : issue.key, $points : issue.points , $phase : change.phase, $timespent : change.timespent});
 			!insertStatements.insertCycleTimeData && console.error("[ERROR] No insert statement for cycle-time found.");
+			insertStatements.insertCycleTimeData && insertStatements.insertCycleTimeData.run({$key : issue.key, $points : issue.points , $phase : change.phase, $timespent : change.timespent});
 		},
 
 		insertStoryData : (issue) => {
@@ -43,9 +45,8 @@ module.exports = () => {
 
 		getCycleTimeData : () => {
 			return new Promise((resolve) => {
-				console.log(!insertStatements.insertStoryData);
 				db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", (err, results) => {
-					console.log("Weve got results")
+					console.log("We've got results")
 					resolve(err, results);
 				});
 			})
