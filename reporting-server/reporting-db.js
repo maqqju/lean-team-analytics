@@ -47,14 +47,41 @@ module.exports = () => {
 			!insertStatements.insertStoryData && console.error("[ERROR] No insert statement for story data found.");
 		},
 
-		getCycleTimeData : () => {
-			return new Promise((resolve) => {
-				db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", [], (err, results) => {
+		getCycleTimeStatistics : () => new Promise((resolve) => {
+			if (phase) {
+				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
+					resolve({error: err, data : results});
+				});
+			} else {
+				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle", (err, results) => {
 					resolve({error : err, data : results});
 				});
-			})
-		},
+			}
+		}),
 
+		getStoryStatistics : () => new Promise((resolve) => {
+			db.all("SELECT points, sd, weightedaverage FROM tbl_tpe_stories", (err, results) => {
+				resolve({error : err, data : results});
+			});
+		}),
+
+
+		/**
+		 * Retrieves the historical data regarding cycle-time
+		 * @param  {Function}
+		 * @return {Promise}
+		 */
+		getCycleTimeData : () => new Promise((resolve) => {
+			db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", [], (err, results) => {
+				resolve({error : err, data : results});
+			});
+		}),
+
+		/**
+		 * Retrieves the historical data regarding stories
+		 * @param  {Function}
+		 * @return {Promise}
+		 */
 		getStoryData : () => new Promise((resolve) => {
 			db.all("SELECT * FROM tbl_history_stories", [], (err, results) => {
 				resolve({error : err, data : results});

@@ -13,14 +13,18 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns three-point statistical data on cycle time
 	 */
 	app.get("/three-pt-data/cycle", (req,res) => {
-		res.json({message : "A REST API that returns three-point statistical data on cycle time"});
+		dbHandle.getCycleTimeStatistics().then((payload) => {
+			res.json(payload.data);
+		});
 	});
 
 	/**
 	 * A REST API that returns three-point statistical data on stories
 	 */
 	app.get("/three-pt-data/stories", (req,res) => {
-		res.json({message : "A REST API that returns three-point statistical data on stories"});
+		dbHandle.getStoryStatistics().then((payload) => {
+			res.json(payload.data);
+		});
 	});
 
 	/**
