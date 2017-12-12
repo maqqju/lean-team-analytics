@@ -2,7 +2,7 @@ const Promise = require("es6-promise").Promise;
 const http = require("https");
 const reportingDb = require("./reporting-db");
 const reportingEndpoints = require("./reporting-endpoints");
-const reportProcessor = require("./reporting-processing")();
+const reportProcessor = require("./reporting-processor")();
 
 
 
@@ -143,8 +143,7 @@ function ReportingServer(CONFIG) {
 							 .then(() => {
 							  	 new Promise((resolve) => {
 							  	 	reportProcessor.process();
-								 	 //console.log("Processing");
-									 resolve();
+									resolve();
 								 });
 							 }).then(() => {
 								app.listen(port, () => {
