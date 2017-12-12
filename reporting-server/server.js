@@ -2,6 +2,7 @@ const Promise = require("es6-promise").Promise;
 const http = require("https");
 const reportingDb = require("./reporting-db");
 const reportingEndpoints = require("./reporting-endpoints");
+const reportProcessor = require("./reporting-processing")();
 
 
 
@@ -136,11 +137,13 @@ function ReportingServer(CONFIG) {
 	let app;
 	InMemoryDatabase.create().then((dbHandle) => {
 								app = reportingEndpoints(dbHandle);
+								reportProcessor.create(dbHandle);
 							 	return getHistoricalData(CONFIG, insertFunction.bind(this, dbHandle));
 							 })
 							 .then(() => {
 							  	 new Promise((resolve) => {
-								 	 console.log("Processing");
+							  	 	reportProcessor.process();
+								 	 //console.log("Processing");
 									 resolve();
 								 });
 							 }).then(() => {

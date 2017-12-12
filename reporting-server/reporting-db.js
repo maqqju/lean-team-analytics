@@ -47,6 +47,25 @@ module.exports = () => {
 			!insertStatements.insertStoryData && console.error("[ERROR] No insert statement for story data found.");
 		},
 
+		/**
+		 * Retrieves the distinct phases in the database
+		 * 
+		 * @param  {Function}
+		 * @param  {[type]}
+		 * @return {[type]}
+		 */
+		getDistinctPhases : (points) => new Promise((resolve) => {
+			if (points) {
+				db.all("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle WHERE points = $points", {$points : points}, (err, results) => {
+					resolve({error : err, data : results});
+				});
+			} else {
+				db.all("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle", (err, results) => {
+					resolve({error : err, data : results});
+				});
+			}
+		}),
+		
 		getCycleTimeStatistics : () => new Promise((resolve) => {
 			if (phase) {
 				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
