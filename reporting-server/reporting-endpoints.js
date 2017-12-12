@@ -3,6 +3,12 @@ const express = require("express");
 module.exports = (dbHandle) => {
 	console.log("Creating reporting-server endpoints");
 	let app = express();
+	app.use((req,res,next) => {
+		res.header("Access-Control-Allow-Origin", "localhost");
+	  	res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept");
+	  	next();
+	});
+
 	/**
 	 * A REST API that returns three-point statistical data on cycle time
 	 */
@@ -21,9 +27,8 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns historical data on phases
 	 */
 	app.get("/data/phases", (req,res) => {
-		dbHandle.getCycleTimeData().then((err, results) => {
-			console.log(results)
-			res.json(results);
+		dbHandle.getCycleTimeData().then((payload) => {
+			res.json(payload.data);
 		});
 	});
 
@@ -31,8 +36,8 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns historical data on stories
 	 */
 	app.get("/data/stories", (req,res) => {
-		db.all("SELECT key, points, timespent FROM tbl_history_stories", (err, results) => {
-			res.json(err);
+		dbHandle.getStoryData().then((payload) => {
+			res.json(payload.data);
 		});
 	});
 

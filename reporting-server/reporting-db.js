@@ -9,10 +9,14 @@ module.exports = () => {
 	};
 
 	let dbHandle =  {
+
+		/**
+		 * Creates a new database and returns the db-handle
+		 * @return {Promise}
+		 */
 		create : () => {
 			return new Promise((resolve) => {
-
-				db = new sqlite3.Database(":memory:");
+				db = db || new sqlite3.Database(":memory:");
 				db.serialize(() => {
 					console.log("Creating database schema...");
 	
@@ -45,16 +49,17 @@ module.exports = () => {
 
 		getCycleTimeData : () => {
 			return new Promise((resolve) => {
-				db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", (err, results) => {
-					console.log("We've got results")
-					resolve(err, results);
+				db.all("SELECT key, phase, points, SUM(timespent) as timespent FROM tbl_history_cycle GROUP BY key,phase", [], (err, results) => {
+					resolve({error : err, data : results});
 				});
 			})
 		},
 
-		getStoryData : () => {
-
-		}
+		getStoryData : () => new Promise((resolve) => {
+			db.all("SELECT * FROM tbl_history_stories", [], (err, results) => {
+				resolve({error : err, data : results});
+			});
+		})
 
 	};
 
