@@ -140,11 +140,12 @@ function ReportingServer(CONFIG) {
 								reportProcessor.create(dbHandle);
 							 	return getHistoricalData(CONFIG, insertFunction.bind(this, dbHandle));
 							 })
-							 .then(() => {
-							  	 new Promise((resolve) => {
-							  	 	reportProcessor.process(resolve);
-								 });
-							 }).then(() => {
+							 .then(() => new Promise((resolve) => {
+							 		reportProcessor.process(() => {
+						  	 			resolve();
+						  	 		});
+						  	 	})
+						  	 ).then(() => {
 								app.listen(port, () => {
 									console.log("Server is listening on port "+port);
 								});

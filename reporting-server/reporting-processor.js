@@ -1,4 +1,5 @@
 const ee = require("event-emitter");
+const Promise = require("es6-promise").Promise;
 
 // Using default Fibonacci sequence as story points
 const STORY_POINTS = [1,2,3,5,8,13,21];
@@ -55,9 +56,10 @@ function getThreePointValuesFromList(list) {
  * @return {[type]}
  */
 function numberCrunching(dbHandle, sp) {
-
+	//console.log("Number crunching for Story Points ["+sp+"]");
 	dbHandle.getTimeSpentOnPoints(sp).then((payload) => {
-		let threePointValues = getThreePointValuesFromList(results.map((result) => result.timespent));
+		payload.err && console.log(payload.error);
+		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
 		dbHandle.insertTimeStatsOnPoints(sp, threePointValues.sd, threePointValues.weightedaverage);
 	});
 }
@@ -72,8 +74,9 @@ function numberCrunching(dbHandle, sp) {
  */
 //@flow
 function numberCrunchingForCyleTime(dbHandle, sp, phase) {
-
+	//console.log("Number crunching for Story Points ["+sp+"] and Phase ["+phase+"]");
 	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
+		payload.err && console.log(payload.error);
 		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
 		dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
 	});	
@@ -95,37 +98,48 @@ module.exports = () => {
 		calls.numberCrunchingForCyleTime = numberCrunchingForCyleTime.bind(null, dbHandle);
 	});
 
+
 	emitter.on("process", (cb) => {
 		if(!dbHandle) {
 			console.log("No handle for DB found");	
 			return;
 		} 
 		console.log("Processing");
-		
-		STORY_POINTS.forEach((storyPointValue) => {
-			calls.numberCrunching(storyPointValue);
-			dbHandle.getDistinctPhases(storyPointValue).then((payload) => {
+
+		Promise.resolve()
+		.then(() => new Promise((resolve) => {
+			STORY_POINTS.forEach((storyPointValue) => {
+				calls.numberCrunching(storyPointValue);
+				dbHandle.getDistinctPhases(storyPointValue).then((payload) => {
+					payload.err && console.log(payload.error);
+					if (payload.data) {
+						let phases = payload.data;
+						phases.forEach((phase) => {
+							calls.numberCrunchingForCyleTime(storyPointValue, phase.phase);
+						});
+
+						resolve();
+					}
+				});
+			});
+		}))
+		.then(() => new Promise((resolve) => {
+			dbHandle.getDistinctPhases().then((payload) => {
+				payload.err && console.log(payload.error);
 				if (payload.data) {
 					let phases = payload.data;
 					phases.forEach((phase) => {
-						calls.numberCrunchingForCyleTime(storyPointValue, phase.phase);
+						dbHandle.getTimeSpentOnPhase(phase).then((payload) => {
+							payload.err && console.log(payload.error);
+							let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
+							dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
+						});
 					});
+
+					resolve();
 				}
 			});
-		});
-
-		dbHandle.getDistinctPhases().then((payload) => {
-			if (payload.data) {
-				let phases = payload.data;
-
-				phases.forEach((phase) => {
-					dbHandle.getTimeSpentOnPhase(phase).then((payload) => {
-						let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
-						dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
-					});
-				});
-			}
-		});
+		})).then(cb);
 	});
 
 	return {
@@ -133,7 +147,7 @@ module.exports = () => {
 			emitter.emit("initialize", handle);
 		},
 
-		process : () => {
+		process : (cb) => {
 			emitter.emit("process", cb);
 		}
 	}

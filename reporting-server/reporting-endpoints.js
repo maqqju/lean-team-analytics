@@ -13,7 +13,7 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns three-point statistical data on cycle time
 	 */
 	app.get("/three-pt-data/cycle", (req,res) => {
-		dbHandle.getCycleTimeStatistics().then((payload) => {
+		dbHandle.getCycleTimeStats().then((payload) => {
 			res.json(payload.data);
 		});
 	});
@@ -22,7 +22,7 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns three-point statistical data on stories
 	 */
 	app.get("/three-pt-data/stories", (req,res) => {
-		dbHandle.getStoryStatistics().then((payload) => {
+		dbHandle.getStoryStats().then((payload) => {
 			res.json(payload.data);
 		});
 	});

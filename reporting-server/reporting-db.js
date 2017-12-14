@@ -66,7 +66,7 @@ module.exports = () => {
 			}
 		}),
 		
-		getCycleTimeStatistics : () => new Promise((resolve) => {
+		getCycleTimeStats : () => new Promise((resolve) => {
 			if (phase) {
 				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
 					resolve({error: err, data : results});
@@ -78,7 +78,7 @@ module.exports = () => {
 			}
 		}),
 
-		getStoryStatistics : () => new Promise((resolve) => {
+		getStoryStats : () => new Promise((resolve) => {
 			db.all("SELECT points, sd, weightedaverage FROM tbl_tpe_stories", (err, results) => {
 				resolve({error : err, data : results});
 			});
@@ -148,6 +148,8 @@ module.exports = () => {
 				$sd : sd,
 				$weightedaverage : weightedaverage
 			};
+
+			console.log(JSON.stringify(element));
 
 			db.all("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", element);
 		}
