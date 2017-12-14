@@ -142,8 +142,7 @@ function ReportingServer(CONFIG) {
 							 })
 							 .then(() => {
 							  	 new Promise((resolve) => {
-							  	 	reportProcessor.process();
-									resolve();
+							  	 	reportProcessor.process(resolve);
 								 });
 							 }).then(() => {
 								app.listen(port, () => {

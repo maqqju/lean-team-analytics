@@ -105,7 +105,35 @@ module.exports = () => {
 			db.all("SELECT * FROM tbl_history_stories", [], (err, results) => {
 				resolve({error : err, data : results});
 			});
-		})
+		}),
+
+		getTimeSpentOnPhaseForPoints : (phase, storyPointValue) => new Promise((resolve) => {
+			let statement = pointedStories ? "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points = $points ";
+
+			db.all(statement, {$phase : phase, $points : storyPointValue}, (err, results) => {
+				resolve({error : err, data : results});
+			});
+		}),
+
+		getTimeSpentOnPhase : (phase, pointedOnly) => new Promise((resolve) => {
+			let statement = pointedStories ? "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points IS NOT NULL"
+								: "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase";
+
+			db.all(statement, {$phase : phase}, (err, results) => {
+				resolve({error : err, data : results});
+			});
+		}),
+
+		insertTimespentOnPhase : (points, phase, sd, weightedaverage) => {
+			let element = {
+				$points : points,
+				$phase : phase,
+				$sd : sd,
+				$weightedaverage : weightedaverage
+			};
+
+			db.all("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", element);
+		}
 
 	};
 

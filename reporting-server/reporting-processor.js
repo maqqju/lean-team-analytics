@@ -52,11 +52,12 @@ function getThreePointValuesFromList(list) {
  *
  * :::NOTE:::
  * Needs to be reworked so that it uses dbHandle
- * 
+ *
+ * @param  {Object} dbHandle : handle to server db
  * @param  {[type]}
  * @return {[type]}
  */
-function numberCrunching(sp) {
+function numberCrunching(dbHandle, sp) {
 
 	// move this to DB handle
 	let preparedStmt = db.prepare("SELECT timespent FROM tbl_history_stories WHERE points = $points");
@@ -81,31 +82,34 @@ function numberCrunching(sp) {
  * @param  {[type]}
  * @param  {[type]}
  * @return {[type]}
+ * 
  */
-function numberCrunchingForCyleTime(sp, phase) {
-	let preparedStmt = db.prepare("SELECT timespent FROM tbl_history_cycle WHERE points = $points AND phase = $phase AND points IS NOT NULL");
-	preparedStmt.all({$points : sp, $phase : phase}, (err, results) => {
-		let threePointValues = getThreePointValuesFromList(results.map((result) => result.timespent));
-		db.run("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", {
-			$points : sp,
-			$phase : phase,
-			$sd : threePointValues.sd,
-			$weightedaverage : threePointValues.weightedaverage
-		});
+//@flow
+function numberCrunchingForCyleTime(dbHandle, sp, phase) {
+
+	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
+		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
+		dbHandle.insertTimeSpentOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
 	});	
 }
 
 
 module.exports = () => {
 	let dbHandle;
-
 	let emitter = ee();
+
+	let calls = {
+		numberCrunching : null,
+		numberCrunchingForCyleTime : null
+	}
 
 	emitter.on("initialize", (handle) => {
 		dbHandle = handle;
+		calls.numberCrunching = numberCrunching.bind(null, dbHandle);
+		calls.numberCrunchingForCyleTime = numberCrunchingForCyleTime.bind(null, dbHandle);
 	});
 
-	emitter.on("process", () => {
+	emitter.on("process", (cb) => {
 		if(!dbHandle) {
 			console.log("No handle for DB found");	
 			return;
@@ -113,31 +117,28 @@ module.exports = () => {
 		console.log("Processing");
 		
 		STORY_POINTS.forEach((storyPointValue) => {
-			numberCrunching.call(null, storyPointValue);
-		});
-
-		let phasesStmt = db.prepare("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle WHERE points = $points");
-		STORY_POINTS.forEach((storyPointValue) => {
-			phasesStmt.all({$points : storyPointValue}, (err, results) => {
-				results.forEach((phase) => {
-					numberCrunchingForCyleTime.call(null, storyPointValue, phase.phase);
-				});
+			calls.numberCrunching(storyPointValue);
+			dbHandle.getDistinctPhases(storyPointValue).then((payload) => {
+				if (payload.data) {
+					let phases = payload.data;
+					phases.forEach((phase) => {
+						calls.numberCrunchingForCyleTime(storyPointValue, phase.phase);
+					});
+				}
 			});
 		});
 
-		db.all("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle", (err, results) => {
-			results.forEach((phase) => {
-				var generalStmt = db.prepare("SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points IS NOT NULL");
-				generalStmt.all({$phase : phase.phase}, (err2, timespentOnPhase) => {
-					var threePointValues = getThreePointValuesFromList(timespentOnPhase.map((result) => result.timespent));
-					db.run("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", {
-						$points : -1,
-						$phase : phase.phase,
-						$sd : threePointValues.sd,
-						$weightedaverage : threePointValues.weightedaverage
+		dbHandle.getDistinctPhases().then((payload) => {
+			if (payload.data) {
+				let phases = payload.data;
+
+				phases.forEach((phase) => {
+					dbHandle.getTimeSpentOnPhase(phase).then((payload) => {
+						let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
+						dbHandle.insertTimeSpentOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
 					});
 				});
-			});
+			}
 		});
 	});
 
@@ -147,7 +148,7 @@ module.exports = () => {
 		},
 
 		process : () => {
-			emitter.emit("process");
+			emitter.emit("process", cb);
 		}
 	}
 }
