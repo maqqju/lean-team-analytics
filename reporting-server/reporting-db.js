@@ -107,8 +107,15 @@ module.exports = () => {
 			});
 		}),
 
+		getTimeSpentOnPoints : (storyPointValue) => new Promise((resolve) => {
+			let statement = "SELECT timespent FROM tbl_history_stories WHERE points = $points";
+			db.all(statement, {$points : storyPointValue}, (err, results) => {
+				resolve({error : err, data : results});
+			});
+		}),
+
 		getTimeSpentOnPhaseForPoints : (phase, storyPointValue) => new Promise((resolve) => {
-			let statement = pointedStories ? "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points = $points ";
+			let statement = "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points = $points ";
 
 			db.all(statement, {$phase : phase, $points : storyPointValue}, (err, results) => {
 				resolve({error : err, data : results});
@@ -124,7 +131,7 @@ module.exports = () => {
 			});
 		}),
 
-		insertTimespentOnPhase : (points, phase, sd, weightedaverage) => {
+		insertTimeStatsOnPhase : (points, phase, sd, weightedaverage) => {
 			let element = {
 				$points : points,
 				$phase : phase,
@@ -133,6 +140,16 @@ module.exports = () => {
 			};
 
 			db.all("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", element);
+		},
+
+		insertTimeStatsOnPoints : (points, sd, weightedaverage) => {
+			let element = {
+				$points : points,
+				$sd : sd,
+				$weightedaverage : weightedaverage
+			};
+
+			db.all("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", element);
 		}
 
 	};

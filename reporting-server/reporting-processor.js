@@ -50,35 +50,21 @@ function getThreePointValuesFromList(list) {
 /**
  * Crunches a given value and inserts it to DB
  *
- * :::NOTE:::
- * Needs to be reworked so that it uses dbHandle
- *
  * @param  {Object} dbHandle : handle to server db
  * @param  {[type]}
  * @return {[type]}
  */
 function numberCrunching(dbHandle, sp) {
 
-	// move this to DB handle
-	let preparedStmt = db.prepare("SELECT timespent FROM tbl_history_stories WHERE points = $points");
-	preparedStmt.all({$points : sp}, (err, results) => {
+	dbHandle.getTimeSpentOnPoints(sp).then((payload) => {
 		let threePointValues = getThreePointValuesFromList(results.map((result) => result.timespent));
-
-		db.run("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", {
-			$points : sp,
-			$sd : threePointValues.sd,
-			$weightedaverage : threePointValues.weightedaverage
-		});
-	});	
+		dbHandle.insertTimeStatsOnPoints(sp, threePointValues.sd, threePointValues.weightedaverage);
+	});
 }
 
 
 /**
  * Crunches a given value for cycle time and inserts it to DB
- *
- * :::NOTE:::
- * Needs to be reworked so that it uses dbHandle
- * 
  * @param  {[type]}
  * @param  {[type]}
  * @return {[type]}
@@ -89,7 +75,7 @@ function numberCrunchingForCyleTime(dbHandle, sp, phase) {
 
 	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
 		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
-		dbHandle.insertTimeSpentOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
+		dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
 	});	
 }
 
@@ -135,7 +121,7 @@ module.exports = () => {
 				phases.forEach((phase) => {
 					dbHandle.getTimeSpentOnPhase(phase).then((payload) => {
 						let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
-						dbHandle.insertTimeSpentOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
+						dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
 					});
 				});
 			}
