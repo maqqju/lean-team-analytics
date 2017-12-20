@@ -108,8 +108,10 @@ module.exports = () => {
 		}),
 
 		getTimeSpentOnPoints : (storyPointValue) => new Promise((resolve) => {
+			console.log("Getting timespent on ", storyPointValue);
 			let statement = "SELECT timespent FROM tbl_history_stories WHERE points = $points";
 			db.all(statement, {$points : storyPointValue}, (err, results) => {
+				console.log("Got timespent on ", storyPointValue);
 				resolve({error : err, data : results});
 			});
 		}),
@@ -132,6 +134,10 @@ module.exports = () => {
 		}),
 
 		insertTimeStatsOnPhase : (points, phase, sd, weightedaverage) => {
+			if(!phase || !points || !sd || !weightedaverage) {
+				return console.log("There's a missing argument");
+			}
+
 			let element = {
 				$points : points,
 				$phase : phase,
@@ -139,19 +145,34 @@ module.exports = () => {
 				$weightedaverage : weightedaverage
 			};
 
-			db.all("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", element);
+			db.all("INSERT INTO tbl_tpe_cycle (points, phase, sd, weightedaverage) VALUES ($points, $phase, $sd, $weightedaverage)", element, (err) => {
+				if (err) {
+					return console.log("Error when inserting data on cycle-time: ", err.message);
+				}
+
+				console.log("Successfully inserted data on cycle-time.");
+
+			});
 		},
 
 		insertTimeStatsOnPoints : (points, sd, weightedaverage) => {
+			if(!points || !sd || !weightedaverage) {
+				return console.log("There's a missing argument");
+			}
+
 			let element = {
 				$points : points,
 				$sd : sd,
 				$weightedaverage : weightedaverage
 			};
+			console.log("Inserting ", JSON.stringify(element));
+			db.all("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", element, (err) => {
+				if (err) {
+					return console.log("Error when inserting data on points: ", err.message);
+				}				
 
-			console.log(JSON.stringify(element));
-
-			db.all("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", element);
+				console.log("Successfully inserted data on points.", JSON.stringify(element));
+			});
 		}
 
 	};

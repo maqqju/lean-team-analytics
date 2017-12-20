@@ -54,6 +54,7 @@ function getHistoricalData(CONFIG, insertData) {
 				res.on("end", () => {
 					var body = JSON.parse(Buffer.concat(chunks));
 					insertData && insertData(body.issues);
+					//if (startAt < 3) {
 					if (startAt < body.total) {
 						getData(page ? page+1 : 1).then(resolve);
 					} else {

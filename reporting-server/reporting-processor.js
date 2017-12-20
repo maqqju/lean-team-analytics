@@ -16,12 +16,67 @@ const STORY_POINTS = [1,2,3,5,8,13,21];
  * @param  {[type]}
  * @return {[type]}
  */
-function removeNoise(changeList) {
-	let filteredList = changelist.filter((timespent, index, list) => { return index > 0 ? Math.floor(timespent/list[index - 1]) < 250 : true});
-	if (filteredList.length === changelist.length) {
-		return filteredList;
-	} else {
-		return removeNoise(filteredList);
+function removeNoise(rawChangeList) {
+	let changeList = rawChangeList.map((time) => Number(time)).sort((a,b) => a - b).filter((time) => time > 0).sort((a,b) => a-b);
+	console.log("Filter 1");
+	let processed = [].concat(changeList)
+					 .map((timespent) => Math.log10(timespent))
+					 .map((log, index, list) => (index > 0 ? log / list[index-1] : 0) % 1);
+
+	console.log("Filter 2");
+	let processedForThreshold = [].concat(processed).sort((dec1,dec2) => dec1 - dec2);
+	
+	console.log("Filter 3");
+	let minThreshIndex = Math.floor(processedForThreshold.length * 0.95);
+	let maxThreshIndex = Math.floor(processedForThreshold.length * 0.97);
+
+	console.log("Filter 4");
+
+	let minThresh = processedForThreshold[minThreshIndex];
+	let maxThresh = processedForThreshold[maxThreshIndex];
+
+
+
+	// here we are choosing the index points highlighted by outliers
+	// e.g. [1,3,100,105], and the threshold for difference is 5, then 100 is marked as an outlier
+	// so this process will give us a list with an outlier [2]
+	// additionally we are adding the index 0, and the end of list
+	// so that we can choose between the segments 0..2,2..3, and choose the biggest segment.
+	// 
+	// Marked points will be excluded.
+	
+	let minSegmentsPoints = processed.map((item, index) => { return { item : item, index : index}}).filter((item) => item.item >= minThresh)
+									 .map((item) => item.index);
+ 	console.log("Filter 5");
+	let maxSegmentsPoints = processed.map((item, index) => { return { item : item, index : index}}).filter((item) => item.item >= maxThresh)
+									 .map((item) => item.index);
+
+	console.log("Filter 6");
+	/**
+	 * Transforms a list of points to segments to the original list
+	 * 
+	 * @param  {[type]} segmentPoints [description]
+	 * @return {[type]}               [description]
+	 */
+	let transformToSegments = (segmentPoints) => {
+		segmentPoints.map((point, index, list) => {
+			if (index === 0) {
+				return {start : 0, end : point, size : point}
+			} else if (index === list.length-1) {
+				return {start : point, end : processed.length, size : (processed.length-1) - (point)}
+			} else {
+				return {start : list[index-1], end : point, size : point-list[index-1]}
+			}
+		}).sort((a,b) => b.size - a.size);
+	}
+	let minSeg = transformToSegments(minSegmentsPoints);
+	console.log("Filter 7");
+	let maxSeg = transformToSegments(maxSegmentsPoints);
+	console.log("Filter 8");
+
+	return {
+		min : changeList.filter((change, index) => minSeg[0] && (index >= minSeg[0].start || index <= minSeg[0].end)),//processed.map((item, index) => { return { item : item, index : index}}).filter((item) => item.item <= minThresh).map((item) => changelist[item.index]),
+		max : changeList.filter((change, index) => maxSeg[0] && (index >= maxSeg[0].start || index <= maxSeg[0].end))
 	}
 }
 
@@ -32,20 +87,24 @@ function removeNoise(changeList) {
  * @param  {[type]}
  * @return {[type]}
  */
-function getThreePointValuesFromList(list) {
-	let sortedList = removeNoise(list.map((time) => Number(time)).sort((a,b) => a - b).filter((time) => time > 0));
-	let bestCase = sortedList[0];
-	let worstCase = sortedList[sortedList.length-1];
-	let mostLikely = sortedList.reduce((acc,value) => acc + value, 0) / sortedList.length;
+function getThreePointValuesFromList(list, sp) {
+	return new Promise((resolve) => {
+		sp && console.log("Cleaning data for ", sp);
+		//list.map((time) => Number(time)).sort((a,b) => a - b).filter((time) => time > 0)
+		Promise.resolve(removeNoise(list)).then((cleanedListPayload) => {
+			sp && console.log("Data cleaned for ", sp);
+			let sortedList = cleanedListPayload.max;
+			let bestCase = sortedList[0];
+			let worstCase = sortedList[sortedList.length-1];
+			let mostLikely = sortedList.reduce((acc,value) => acc + value, 0) / sortedList.length;
 
-	let sd = (worstCase - bestCase) / 6;
+			let sd = (worstCase - bestCase) / 6;
 
-	let weightedaverage = (bestCase + worstCase + (4*mostLikely)) / 6;
+			let weightedaverage = (bestCase + worstCase + (4*mostLikely)) / 6;
 
-	return {
-		sd : sd,
-		weightedaverage : weightedaverage
-	}
+			resolve({ sd : sd, weightedaverage : weightedaverage });
+		});
+	})
 }
 
 /**
@@ -56,10 +115,12 @@ function getThreePointValuesFromList(list) {
  * @return {[type]}
  */
 function numberCrunching(dbHandle, sp) {
-	//console.log("Number crunching for Story Points ["+sp+"]");
 	dbHandle.getTimeSpentOnPoints(sp).then((payload) => {
-		payload.err && console.log(payload.error);
-		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
+		console.log("Got payload on ",sp);
+		return getThreePointValuesFromList(payload.data.map((result) => result.timespent), sp);
+		
+	}).then((threePointValues) => {
+		console.log("Inserting story data ", sp);
 		dbHandle.insertTimeStatsOnPoints(sp, threePointValues.sd, threePointValues.weightedaverage);
 	});
 }
@@ -72,13 +133,13 @@ function numberCrunching(dbHandle, sp) {
  * @return {[type]}
  * 
  */
-//@flow
 function numberCrunchingForCyleTime(dbHandle, sp, phase) {
-	//console.log("Number crunching for Story Points ["+sp+"] and Phase ["+phase+"]");
 	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
 		payload.err && console.log(payload.error);
-		let threePointValues = getThreePointValuesFromList(payload.data.map((result) => result.timespent));
-		dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
+		getThreePointValuesFromList(payload.data.map((result) => result.timespent)).then((threePointValues) => {
+			console.log("Inserting cycle time data");
+			dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
+		});
 	});	
 }
 
@@ -106,22 +167,37 @@ module.exports = () => {
 		} 
 		console.log("Processing");
 
-		Promise.resolve()
-		.then(() => new Promise((resolve) => {
+		Promise.resolve().then(() => new Promise((resolve) => {
+
+			let crunchSPData = STORY_POINTS.reduce((promiseChain, sp) => {
+					return promiseChain.then(() => new Promise((resolve) => {
+						console.log(sp);
+						calls.numberCrunching(sp);
+						resolve();
+					}));
+			}, Promise.resolve());
+
+			crunchSPData.then(() => {
+				console.log("Processed SP Data");
+			});
+
+			// STORY_POINTS.forEach((storyPointValue) => {
+			// });
+
 			STORY_POINTS.forEach((storyPointValue) => {
-				calls.numberCrunching(storyPointValue);
 				dbHandle.getDistinctPhases(storyPointValue).then((payload) => {
 					payload.err && console.log(payload.error);
 					if (payload.data) {
 						let phases = payload.data;
 						phases.forEach((phase) => {
+							//console.log("Crunching numbers for phase : " + phase.phase);
 							calls.numberCrunchingForCyleTime(storyPointValue, phase.phase);
 						});
 
 						resolve();
 					}
 				});
-			});
+			})
 		}))
 		.then(() => new Promise((resolve) => {
 			dbHandle.getDistinctPhases().then((payload) => {
@@ -129,7 +205,7 @@ module.exports = () => {
 				if (payload.data) {
 					let phases = payload.data;
 					phases.forEach((phase) => {
-						dbHandle.getTimeSpentOnPhase(phase).then((payload) => {
+						dbHandle.getTimeSpentOnPhase(phase.phase).then((payload) => {
 							payload.err && console.log(payload.error);
 							let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
 							dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
