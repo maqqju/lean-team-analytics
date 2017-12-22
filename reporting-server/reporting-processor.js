@@ -12,9 +12,11 @@ const STORY_POINTS = [1,2,3,5,8,13,21];
  * :::NOTE:::
  * Right now using an arbitrary constant of 250 - aiming at finding a more intelligent way how to
  * find this threshold.
- * 
- * @param  {[type]}
- * @return {[type]}
+ *
+ * @param {Array} [rawChangeList] [The original changelist as received]
+ * @param {Decimal} [thresholdPoint] [The percentage point (in decimal format) at which a cutoff for data is chosen]
+ *
+ * @return {Promise} [A Promise passing the chosen segment]
  */
 function removeNoise(rawChangeList, thresholdPoint) {
 	return new Promise((resolve) => {
@@ -35,8 +37,8 @@ function removeNoise(rawChangeList, thresholdPoint) {
 		 * 
 		 * Marked points will be excluded.
 		 */
-		let maxSegmentsPoints = processed.map((item, index) => { return { item : item, index : index}}).filter((item) => item.item >= maxThresh)
-										 .map((item) => item.index);
+		let thresholdSegmentPoints = processed.map((item, index) => { return { item : item, index : index}}).filter((item) => item.item >= threshold)
+										 	  .map((item) => item.index);
 
 		/**
 		 * Transforms a list of points to segments to the original list
@@ -44,8 +46,8 @@ function removeNoise(rawChangeList, thresholdPoint) {
 		 * @param  {[type]} segmentPoints [description]
 		 * @return {[type]}               [description]
 		 */
-		let transformToSegments = (segmentPoints) => new Promise((resolve) => {
-			resolve(segmentPoints.map((point, index, list) => {
+		let transformToSegments = (segmentPoints) => new Promise((res) => {
+			res(segmentPoints.map((point, index, list) => {
 				if (index === 0) {
 					return {start : 0, end : point, size : point}
 				} else if (index === list.length-1) {
@@ -56,11 +58,11 @@ function removeNoise(rawChangeList, thresholdPoint) {
 			}).sort((a,b) => b.size - a.size));
 		});
 
-		let max = transformToSegments(maxSegmentsPoints).then((maxSeg) => {
-			return changeList.filter((change, index) => maxSeg[0] && (index > maxSeg[0].start || index < maxSeg[0].end));
+		let cleanedList = transformToSegments(thresholdSegmentPoints).then((thresholdSegments) => {
+			return changeList.filter((change, index) => thresholdSegments[0] && (index > thresholdSegments[0].start || index < thresholdSegments[0].end));
 		});
 
-		resolve(max);
+		resolve(cleanedList);
 	});
 }
 
