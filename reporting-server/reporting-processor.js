@@ -97,14 +97,8 @@ function getThreePointValuesFromList(list, sp) {
  * @return {[type]}
  */
 function numberCrunching(dbHandle, sp) {
-	dbHandle.getTimeSpentOnPoints(sp).then((payload) => {
-		console.log("Got payload on ",sp);
-		return getThreePointValuesFromList(payload.data.map((result) => result.timespent), sp);
-		
-	}).then((threePointValues) => {
-		console.log("Inserting story data ", sp);
-		dbHandle.insertTimeStatsOnPoints(sp, threePointValues.sd, threePointValues.weightedaverage);
-	});
+	dbHandle.getTimeSpentOnPoints(sp).then((payload) => getThreePointValuesFromList(payload.data.map((result) => result.timespent)))
+									 .then((threePointValues) => dbHandle.insertTimeStatsOnPoints(sp, threePointValues.sd, threePointValues.weightedaverage));
 }
 
 
@@ -118,10 +112,7 @@ function numberCrunching(dbHandle, sp) {
 function numberCrunchingForCyleTime(dbHandle, sp, phase) {
 	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
 		payload.err && console.log(payload.error);
-		getThreePointValuesFromList(payload.data.map((result) => result.timespent)).then((threePointValues) => {
-			console.log("Inserting cycle time data");
-			dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage);
-		});
+		getThreePointValuesFromList(payload.data.map((result) => result.timespent)).then((threePointValues) => dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage));
 	});	
 }
 
@@ -151,46 +142,47 @@ module.exports = () => {
 
 		Promise.resolve().then(() => new Promise((resolve) => {
 
-			let crunchSPData = STORY_POINTS.reduce((promiseChain, sp) => {
-					return promiseChain.then(() => new Promise((resolve) => {
-						console.log(sp);
+			STORY_POINTS.reduce((promiseChain, sp) => {
+					return promiseChain.then(() => new Promise((res) => {
 						calls.numberCrunching(sp);
-						resolve();
+						res();
 					}));
-			}, Promise.resolve());
-
-			crunchSPData.then(() => {
-				console.log("Processed SP Data");
+			}, Promise.resolve()).then(() => {
+				console.log("Processed story point data");
 			});
 
-			// STORY_POINTS.forEach((storyPointValue) => {
-			// });
 
-			STORY_POINTS.forEach((storyPointValue) => {
-				dbHandle.getDistinctPhases(storyPointValue).then((payload) => {
-					payload.err && console.log(payload.error);
-					if (payload.data) {
-						let phases = payload.data;
-						phases.forEach((phase) => {
-							//console.log("Crunching numbers for phase : " + phase.phase);
-							calls.numberCrunchingForCyleTime(storyPointValue, phase.phase);
+			console.log("Starting to process phased data");
+			STORY_POINTS.map((storyPointValue) => dbHandle.getDistinctPhases(storyPointValue))
+						.reduce((promiseChain, distinctPhasesPromise) => promiseChain.then(() => distinctPhasesPromise.then((payload) => {
+							payload.error && console.log(payload.error);
+							if (payload.data && payload.data.phases) {
+								let sp = payload.data.points || -1;
+								payload.data.phases.forEach((phase) => calls.numberCrunchingForCyleTime(sp, phase.phase));
+							}
+						}), Promise.resolve())).then(() => {
+							console.log("Processed cycle-time data");
+							resolve();
 						});
-
-						resolve();
-					}
-				});
-			})
-		}))
-		.then(() => new Promise((resolve) => {
+			// })
+		})).then(() => new Promise((resolve) => {
+			console.log("Starting generic crunching");
 			dbHandle.getDistinctPhases().then((payload) => {
 				payload.err && console.log(payload.error);
-				if (payload.data) {
-					let phases = payload.data;
+				if (payload.data && payload.data.phases) {
+					let phases = payload.data.phases;
+
+					// payload.data.phases.map((phase) => dbHandle.getTimeSpentOnPhase(phase.phase))
+					// 				   .reduce((promiseChain, cycleTimePromise) => promiseChain.then(() => cycleTimePromise)
+					// 				   														   .then((cycleTimePayload) => !cycleTimePayload.error && getThreePointValuesFromList(pd.data.map((row) => row.timespent)))
+					// 				   														   .then(threePointValues) => dbHandle.insertTimeStatsOnPhase(-1, ))
+
 					phases.forEach((phase) => {
-						dbHandle.getTimeSpentOnPhase(phase.phase).then((payload) => {
-							payload.err && console.log(payload.error);
-							let threePointValues = getThreePointValuesFromList(payload.data.map((row) => row.timespent));
-							dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
+						dbHandle.getTimeSpentOnPhase(phase.phase).then((pd) => {
+							pd.error && console.log(pd.error);
+							getThreePointValuesFromList(pd.data.map((row) => row.timespent)).then((threePointValues) => {
+								dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
+							})
 						});
 					});
 

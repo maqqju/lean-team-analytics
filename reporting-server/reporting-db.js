@@ -57,22 +57,35 @@ module.exports = () => {
 		getDistinctPhases : (points) => new Promise((resolve) => {
 			if (points) {
 				db.all("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle WHERE points = $points", {$points : points}, (err, results) => {
-					resolve({error : err, data : results});
+					resolve({
+						error : err, 
+						data : {
+							points : points,
+							phases : results
+						}
+					});
 				});
 			} else {
 				db.all("SELECT DISTINCT(phase) as phase FROM tbl_history_cycle", (err, results) => {
-					resolve({error : err, data : results});
+					resolve({
+						error : err, 
+						data : {
+							phases : results
+						}
+					});
 				});
 			}
 		}),
 		
-		getCycleTimeStats : () => new Promise((resolve) => {
+		getCycleTimeStats : (phase) => new Promise((resolve) => {
 			if (phase) {
 				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
 					resolve({error: err, data : results});
 				});
 			} else {
+				console.log("no phase received");
 				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle", (err, results) => {
+					console.log(JSON.stringify(results));
 					resolve({error : err, data : results});
 				});
 			}
@@ -108,10 +121,8 @@ module.exports = () => {
 		}),
 
 		getTimeSpentOnPoints : (storyPointValue) => new Promise((resolve) => {
-			console.log("Getting timespent on ", storyPointValue);
 			let statement = "SELECT timespent FROM tbl_history_stories WHERE points = $points";
 			db.all(statement, {$points : storyPointValue}, (err, results) => {
-				console.log("Got timespent on ", storyPointValue);
 				resolve({error : err, data : results});
 			});
 		}),
@@ -125,7 +136,7 @@ module.exports = () => {
 		}),
 
 		getTimeSpentOnPhase : (phase, pointedOnly) => new Promise((resolve) => {
-			let statement = pointedStories ? "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points IS NOT NULL"
+			let statement = pointedOnly ? "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points IS NOT NULL"
 								: "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase";
 
 			db.all(statement, {$phase : phase}, (err, results) => {
@@ -135,7 +146,7 @@ module.exports = () => {
 
 		insertTimeStatsOnPhase : (points, phase, sd, weightedaverage) => {
 			if(!phase || !points || !sd || !weightedaverage) {
-				return console.log("There's a missing argument");
+				return console.log(`[Warning] Missing argument ${[points,phase,sd,weightedaverage]}`);
 			}
 
 			let element = {
@@ -149,15 +160,12 @@ module.exports = () => {
 				if (err) {
 					return console.log("Error when inserting data on cycle-time: ", err.message);
 				}
-
-				console.log("Successfully inserted data on cycle-time.");
-
 			});
 		},
 
 		insertTimeStatsOnPoints : (points, sd, weightedaverage) => {
 			if(!points || !sd || !weightedaverage) {
-				return console.log("There's a missing argument");
+				return console.log(`[Warning] Missing argument ${[points,sd,weightedaverage]}`);
 			}
 
 			let element = {
@@ -165,13 +173,10 @@ module.exports = () => {
 				$sd : sd,
 				$weightedaverage : weightedaverage
 			};
-			console.log("Inserting ", JSON.stringify(element));
 			db.all("INSERT INTO tbl_tpe_stories (points, sd, weightedaverage) VALUES ($points, $sd, $weightedaverage)", element, (err) => {
 				if (err) {
 					return console.log("Error when inserting data on points: ", err.message);
-				}				
-
-				console.log("Successfully inserted data on points.", JSON.stringify(element));
+				}
 			});
 		}
 
