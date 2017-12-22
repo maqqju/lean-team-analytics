@@ -79,13 +79,11 @@ module.exports = () => {
 		
 		getCycleTimeStats : (phase) => new Promise((resolve) => {
 			if (phase) {
-				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
+				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_tpe_cycle WHERE phase = $phase", {$phase : phase}, (err, results) => {
 					resolve({error: err, data : results});
 				});
 			} else {
-				console.log("no phase received");
-				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_history_cycle", (err, results) => {
-					console.log(JSON.stringify(results));
+				db.all("SELECT points, phase, sd, weightedaverage FROM tbl_tpe_cycle", (err, results) => {
 					resolve({error : err, data : results});
 				});
 			}

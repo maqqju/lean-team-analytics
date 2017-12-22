@@ -73,9 +73,8 @@ function removeNoise(rawChangeList, thresholdPoint) {
  * @param  {[type]}
  * @return {[type]}
  */
-function getThreePointValuesFromList(list, sp) {
+function getThreePointValuesFromList(list) {
 	return removeNoise(list, 0.95).then((sortedList) => new Promise((resolve) => {
-			sp && console.log("Data cleaned for ", sp);
 			let bestCase = sortedList[0];
 			let worstCase = sortedList[sortedList.length-1];
 			let mostLikely = sortedList.reduce((acc,value) => acc + value, 0) / sortedList.length;
@@ -138,7 +137,7 @@ module.exports = () => {
 			console.log("No handle for DB found");	
 			return;
 		} 
-		console.log("Processing");
+		console.log("Starting Processing Phase");
 
 		Promise.resolve().then(() => new Promise((resolve) => {
 
@@ -164,20 +163,12 @@ module.exports = () => {
 							console.log("Processed cycle-time data");
 							resolve();
 						});
-			// })
 		})).then(() => new Promise((resolve) => {
 			console.log("Starting generic crunching");
 			dbHandle.getDistinctPhases().then((payload) => {
 				payload.err && console.log(payload.error);
 				if (payload.data && payload.data.phases) {
-					let phases = payload.data.phases;
-
-					// payload.data.phases.map((phase) => dbHandle.getTimeSpentOnPhase(phase.phase))
-					// 				   .reduce((promiseChain, cycleTimePromise) => promiseChain.then(() => cycleTimePromise)
-					// 				   														   .then((cycleTimePayload) => !cycleTimePayload.error && getThreePointValuesFromList(pd.data.map((row) => row.timespent)))
-					// 				   														   .then(threePointValues) => dbHandle.insertTimeStatsOnPhase(-1, ))
-
-					phases.forEach((phase) => {
+					payload.data.phases.forEach((phase) => {
 						dbHandle.getTimeSpentOnPhase(phase.phase).then((pd) => {
 							pd.error && console.log(pd.error);
 							getThreePointValuesFromList(pd.data.map((row) => row.timespent)).then((threePointValues) => {

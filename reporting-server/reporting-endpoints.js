@@ -13,9 +13,7 @@ module.exports = (dbHandle) => {
 	 * A REST API that returns three-point statistical data on cycle time
 	 */
 	app.get("/three-pt-data/cycle", (req,res) => {
-		console.log("Received call on /three-pt-data/cycle");
 		dbHandle.getCycleTimeStats().then((payload) => {
-			console.log("Payload");
 			res.json(payload.data);
 		});
 	});
