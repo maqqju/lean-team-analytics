@@ -108,10 +108,10 @@ function numberCrunching(dbHandle, sp) {
  * @return {[type]}
  * 
  */
-function numberCrunchingForCyleTime(dbHandle, sp, phase) {
+function numberCrunchingForCyleTime(dbHandle, phase, sp) {
 	dbHandle.getTimeSpentOnPhaseForPoints(phase, sp).then((payload) => {
 		payload.err && console.log(payload.error);
-		getThreePointValuesFromList(payload.data.map((result) => result.timespent)).then((threePointValues) => dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage));
+		getThreePointValuesFromList(payload.data.results.map((result) => result.timespent)).then((threePointValues) => dbHandle.insertTimeStatsOnPhase(sp, phase, threePointValues.sd, threePointValues.weightedaverage));
 	});	
 }
 
@@ -157,30 +157,29 @@ module.exports = () => {
 							payload.error && console.log(payload.error);
 							if (payload.data && payload.data.phases) {
 								let sp = payload.data.points || -1;
-								payload.data.phases.forEach((phase) => calls.numberCrunchingForCyleTime(sp, phase.phase));
+								payload.data.phases.forEach((phase) => calls.numberCrunchingForCyleTime(phase.phase,sp));
 							}
 						}), Promise.resolve())).then(() => {
 							console.log("Processed cycle-time data");
 							resolve();
 						});
-		})).then(() => new Promise((resolve) => {
-			console.log("Starting generic crunching");
-			dbHandle.getDistinctPhases().then((payload) => {
-				payload.err && console.log(payload.error);
-				if (payload.data && payload.data.phases) {
-					payload.data.phases.forEach((phase) => {
-						dbHandle.getTimeSpentOnPhase(phase.phase).then((pd) => {
-							pd.error && console.log(pd.error);
-							getThreePointValuesFromList(pd.data.map((row) => row.timespent)).then((threePointValues) => {
-								dbHandle.insertTimeStatsOnPhase(-1, phase.phase, threePointValues.sd, threePointValues.weightedaverage);
-							})
-						});
-					});
-
-					resolve();
-				}
-			});
-		})).then(cb);
+		})).then(() => dbHandle.getDistinctPhases())
+		   .then((payload) => {
+		   		payload.err && console.log(payload.error);
+		   		!payload.data && console.log("No data received when requesting distinct phases");
+		   		return payload.data.phases.map((phase) => dbHandle.getTimeSpentOnPhase(phase.phase))
+   										  .reduce((promiseChain, phasePromise) => {
+	   											return promiseChain.then(() => phasePromise.then((payload) => {
+												  		payload.error && console.log(payload.error);
+													  	getThreePointValuesFromList(payload.data.results.map((row) => row.timespent)).then((threePointValues) => {
+													  		dbHandle.insertTimeStatsOnPhase(-1, payload.data.phase, threePointValues.sd, threePointValues.weightedaverage);
+													  	})   		
+		  						   				}))
+		   								  }, Promise.resolve())
+		}).then(() => {
+			console.log("Successfully crunched all numbers");
+			cb();	
+		})
 	});
 
 	return {

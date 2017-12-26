@@ -129,7 +129,11 @@ module.exports = () => {
 			let statement = "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase AND points = $points ";
 
 			db.all(statement, {$phase : phase, $points : storyPointValue}, (err, results) => {
-				resolve({error : err, data : results});
+				resolve({error : err, data : {
+					phase : phase,
+					points : storyPointValue,
+					results : results
+				}});
 			});
 		}),
 
@@ -138,7 +142,13 @@ module.exports = () => {
 								: "SELECT timespent FROM tbl_history_cycle WHERE phase = $phase";
 
 			db.all(statement, {$phase : phase}, (err, results) => {
-				resolve({error : err, data : results});
+				resolve({
+						error : err, 
+						data : {
+							phase : phase,
+							results : results
+						}
+					});
 			});
 		}),
 
